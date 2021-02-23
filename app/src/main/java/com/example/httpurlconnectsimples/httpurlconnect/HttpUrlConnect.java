@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -45,7 +46,7 @@ public class HttpUrlConnect {
 
     HttpUrlConnectCallBack httpUrlConnectCallBack;
 
-    interface HttpUrlConnectCallBack {
+    public interface HttpUrlConnectCallBack {
         void connectSendOK(String sendOkMSG);
         void connectReceiveOK(String receiveOkMSG);
         void connectErr(String connectErrMSG);
@@ -70,6 +71,7 @@ public class HttpUrlConnect {
 
     private void httpUrlConnection(String urlString, String requestMode, String jsonData) {
         try {
+            Log.e("httpUrlConnection", urlString);
             URL url = new URL(urlString);
             http = (HttpURLConnection) url.openConnection();
 
@@ -79,7 +81,7 @@ public class HttpUrlConnect {
             http.setRequestMethod(requestMode);
             http.setRequestProperty("Accept-Charset", "UTF-8"); // Accept-Charset 설정.
             http.setRequestProperty("Context_Type", "application/x-www-form-urlencoded; Charset=UTF-8");
-            outputStreamData(jsonData);
+            outputStreamData(urlString,jsonData);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -93,7 +95,7 @@ public class HttpUrlConnect {
     }
 
 
-    private void outputStreamData (String jsonData){
+    private void outputStreamData(String urlString, String jsonData){
         try {
             outStream = new OutputStreamWriter(http.getOutputStream(), StandardCharsets.UTF_8);
             PrintWriter writer = new PrintWriter(outStream);
@@ -103,11 +105,7 @@ public class HttpUrlConnect {
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
-                        try {
-                            httpUrlConnectCallBack.connectSendOK(http.getResponseMessage());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                        httpUrlConnectCallBack.connectSendOK(urlString);
                     }
                 });
                 inputStreamData();
@@ -139,10 +137,22 @@ public class HttpUrlConnect {
             while ((str = reader.readLine()) != null) {
                 stringBuilder.append(str).append("\n");
             }
-            httpUrlConnectCallBack.connectReceiveOK(stringBuilder.toString());
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    httpUrlConnectCallBack.connectReceiveOK(stringBuilder.toString());
+                }
+            });
+
         } catch (IOException e) {
             e.printStackTrace();
-            httpUrlConnectCallBack.connectErr(e.toString());
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    httpUrlConnectCallBack.connectErr(e.toString());
+                }
+            });
+
         }
     }
 
